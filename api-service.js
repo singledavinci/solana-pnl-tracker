@@ -32,18 +32,25 @@ class APIService {
                 return await this.fetchBasicTransactions(walletAddress, limit);
             }
 
-            const url = `https://api.helius.xyz/v0/addresses/${walletAddress}/transactions`;
+            const url = `https://api.helius.xyz/v1/addresses/${walletAddress}/transactions`;
             const params = new URLSearchParams({
                 'api-key': this.heliusApiKey,
-                limit: limit.toString(),
-                type: 'SWAP' // Focus on swap transactions
+                limit: limit.toString()
             });
+
+            // If a specific type is requested (like SWAP), Helius v1 handles it via 'type'
+            if (options.type) {
+                params.append('type', options.type);
+            }
 
             if (before) params.append('before', before);
 
+            console.log(`📡 Requesting Helius v1: ${url}?${params.toString()}`);
             const response = await fetch(`${url}?${params}`);
 
             if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`❌ Helius API Error (${response.status}):`, errorText);
                 throw new Error(`Helius API error: ${response.status}`);
             }
 
@@ -148,33 +155,75 @@ class APIService {
     }
 
     // Parse Helius enhanced transaction for swaps
-    parseEnhancedTransaction(tx) {
-        if (!tx || tx.type !== 'SWAP') return null;
+    parseEnhancedTransaction(tx, walletAddress) {
+        // Broaden swap detection
+        const isSwap = tx.type === 'SWAP' ||
+            (tx.description && tx.description.toLowerCase().includes('swap')) ||
+            (tx.events && tx.events.swap);
 
-        const swapInfo = tx.tokenTransfers || [];
+        if (!isSwap) return null;
 
-        // Extract swap details
-        const tokenIn = swapInfo.find(t => t.fromUserAccount === tx.feePayer);
-        const tokenOut = swapInfo.find(t => t.toUserAccount === tx.feePayer);
+        // If Helius already parsed the swap event, use it!
+        if (tx.events && tx.events.swap) {
+            const swap = tx.events.swap;
+            return {
+                signature: tx.signature,
+                timestamp: tx.timestamp,
+                tokenIn: {
+                    symbol: swap.nativeInput ? 'SOL' : (swap.tokenInputs[0]?.tokenSymbol || 'UNKNOWN'),
+                    amount: swap.nativeInput ? swap.nativeInput.amount / 1e9 : (swap.tokenInputs[0]?.tokenAmount || 0),
+                    mint: swap.nativeInput ? 'So11111111111111111111111111111111111111112' : (swap.tokenInputs[0]?.mint || '')
+                },
+                tokenOut: {
+                    symbol: swap.nativeOutput ? 'SOL' : (swap.tokenOutputs[0]?.tokenSymbol || 'UNKNOWN'),
+                    amount: swap.nativeOutput ? swap.nativeOutput.amount / 1e9 : (swap.tokenOutputs[0]?.tokenAmount || 0),
+                    mint: swap.nativeOutput ? 'So11111111111111111111111111111111111111112' : (swap.tokenOutputs[0]?.mint || '')
+                },
+                fee: tx.fee,
+                success: !tx.err
+            };
+        }
 
-        if (!tokenIn || !tokenOut) return null;
+        // Fallback: Manual extraction from transfers
+        const transfers = tx.tokenTransfers || [];
+        const nativeTransfers = tx.nativeTransfers || [];
 
-        return {
-            signature: tx.signature,
-            timestamp: tx.timestamp,
-            tokenIn: {
-                mint: tokenIn.mint,
-                amount: tokenIn.tokenAmount,
-                symbol: tokenIn.tokenSymbol || 'UNKNOWN'
-            },
-            tokenOut: {
-                mint: tokenOut.mint,
-                amount: tokenOut.tokenAmount,
-                symbol: tokenOut.tokenSymbol || 'UNKNOWN'
-            },
-            fee: tx.fee,
-            success: !tx.err
-        };
+        // Find what left the wallet
+        const tokenOut = transfers.find(t => t.fromUserAccount === walletAddress);
+        const solOut = nativeTransfers.find(t => t.fromUserAccount === walletAddress);
+
+        // Find what entered the wallet
+        const tokenIn = transfers.find(t => t.toUserAccount === walletAddress);
+        const solIn = nativeTransfers.find(t => t.toUserAccount === walletAddress);
+
+        if ((tokenOut || solOut) && (tokenIn || solIn)) {
+            return {
+                signature: tx.signature,
+                timestamp: tx.timestamp,
+                tokenIn: tokenOut ? {
+                    symbol: tokenOut.tokenSymbol || 'TOKEN',
+                    amount: tokenOut.tokenAmount,
+                    mint: tokenOut.mint
+                } : {
+                    symbol: 'SOL',
+                    amount: solOut.amount / 1e9,
+                    mint: 'So11111111111111111111111111111111111111112'
+                },
+                tokenOut: tokenIn ? {
+                    symbol: tokenIn.tokenSymbol || 'TOKEN',
+                    amount: tokenIn.tokenAmount,
+                    mint: tokenIn.mint
+                } : {
+                    symbol: 'SOL',
+                    amount: solIn.amount / 1e9,
+                    mint: 'So11111111111111111111111111111111111111112'
+                },
+                fee: tx.fee,
+                success: !tx.err
+            };
+        }
+
+        return null;
     }
 
     // Parse basic RPC transaction

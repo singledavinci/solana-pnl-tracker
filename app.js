@@ -68,7 +68,7 @@ async function analyzeWallet() {
         const trades = await parseTransactions(transactions);
 
         // Calculate P&L
-        const pnlData = calculatePnL(trades);
+        const pnlData = await calculatePnL(trades);
 
         // Detect related wallets
         const relatedWallets = await detectRelatedWallets(transactions, walletAddress);
@@ -98,7 +98,10 @@ async function fetchWalletTransactions(address) {
         apiService.setApiKey(CONFIG.HELIUS_API_KEY);
 
         console.log('🔄 Fetching transactions from Helius...');
-        const transactions = await apiService.fetchEnhancedTransactions(address, { limit: 1000 });
+        const transactions = await apiService.fetchEnhancedTransactions(address, {
+            limit: 1000,
+            type: 'SWAP' // Request swaps specifically
+        });
 
         console.log(`✅ Fetched ${transactions.length} transactions`);
 
@@ -175,105 +178,89 @@ async function parseTransactions(transactions) {
         // Skip if outside timeframe
         if (tx.timestamp && tx.timestamp < cutoffTime) continue;
 
-        // Look for swap/trade patterns
-        // This is simplified - in production, you'd parse instruction data
-        if (tx.type === 'SWAP' || isSwapTransaction(tx)) {
-            const trade = extractTradeInfo(tx);
-            if (trade) trades.push(trade);
+        // Use the API service to parse the enhanced transaction data
+        const trade = apiService.parseEnhancedTransaction(tx, walletInput.value.trim());
+        if (trade) {
+            trades.push(trade);
         }
     }
 
+    console.log(`📈 Parsed ${trades.length} valid trades from transactions`);
     return trades;
 }
 
-// Check if transaction is a swap
-function isSwapTransaction(tx) {
-    if (!tx.description) return false;
-    const desc = tx.description.toLowerCase();
-    return desc.includes('swap') ||
-        desc.includes('exchange') ||
-        desc.includes('trade');
-}
-
-// Extract trade information
-function extractTradeInfo(tx) {
-    try {
-        // This is simplified - real implementation would parse token accounts
-        // For demo, we'll use mock data structure
-        return {
-            signature: tx.signature,
-            timestamp: tx.timestamp || Date.now() / 1000,
-            tokenIn: {
-                symbol: 'SOL',
-                amount: Math.random() * 10,
-                mint: 'So11111111111111111111111111111111111111112'
-            },
-            tokenOut: {
-                symbol: getRandomToken(),
-                amount: Math.random() * 1000,
-                mint: `${Math.random().toString(36).substring(7)}...`
-            },
-            price: Math.random() * 100,
-        };
-    } catch (error) {
-        return null;
-    }
-}
-
-// Calculate P&L from trades
-function calculatePnL(trades) {
+// Utility Functions
+async function calculatePnL(trades) {
     const tokenMap = new Map();
-    const timeline = [];
     let cumulativePnL = 0;
+
+    // Get all unique tokens to fetch prices
+    const uniqueMints = new Set();
+    trades.forEach(trade => {
+        if (trade.tokenIn.mint) uniqueMints.add(trade.tokenIn.mint);
+        if (trade.tokenOut.mint) uniqueMints.add(trade.tokenOut.mint);
+    });
+
+    // Fetch current prices from Jupiter
+    const prices = await apiService.fetchTokenPrices(Array.from(uniqueMints));
 
     // Group by token
     trades.forEach(trade => {
-        const token = trade.tokenOut.symbol;
+        // We track performance for the "target" token (usually not SOL)
+        const isSolIn = trade.tokenIn.symbol === 'SOL' || trade.tokenIn.mint === 'So11111111111111111111111111111111111111112';
+        const targetToken = isSolIn ? trade.tokenOut : trade.tokenIn;
+        const symbol = targetToken.symbol;
 
-        if (!tokenMap.has(token)) {
-            tokenMap.set(token, {
-                symbol: token,
+        if (!tokenMap.has(symbol)) {
+            tokenMap.set(symbol, {
+                symbol,
+                mint: targetToken.mint,
                 trades: [],
                 totalBought: 0,
                 totalSold: 0,
-                avgEntry: 0,
-                avgExit: 0,
-                pnl: 0,
-                roi: 0
+                costBasis: 0,
+                realizedGain: 0,
+                volume: 0
             });
         }
 
-        const tokenData = tokenMap.get(token);
-        tokenData.trades.push(trade);
+        const stats = tokenMap.get(symbol);
+        stats.trades.push(trade);
 
-        // Simulate buy/sell
-        if (Math.random() > 0.5) {
-            tokenData.totalBought += trade.tokenOut.amount;
+        // Approximate USD value if not provided
+        // Use SOL price ($100 default if fetch fails)
+        const solPrice = prices['So11111111111111111111111111111111111111112']?.price || 100;
+
+        if (isSolIn) {
+            // Bought target token with SOL
+            const usdValue = trade.tokenIn.amount * solPrice;
+            stats.totalBought += targetToken.amount;
+            stats.costBasis += usdValue;
+            stats.volume += usdValue;
         } else {
-            tokenData.totalSold += trade.tokenOut.amount;
+            // Sold target token for SOL (or other)
+            const usdValue = trade.tokenOut.amount * solPrice;
+            stats.totalSold += targetToken.amount;
+            stats.realizedGain += usdValue;
+            stats.volume += usdValue;
         }
     });
 
-    // Calculate stats for each token
     const tokens = [];
-    tokenMap.forEach((data, symbol) => {
-        const invested = data.totalBought * (Math.random() * 50 + 10);
-        const returned = data.totalSold * (Math.random() * 60 + 5);
-        data.pnl = returned - invested;
-        data.roi = invested > 0 ? (data.pnl / invested) * 100 : 0;
-        data.avgEntry = data.totalBought > 0 ? invested / data.totalBought : 0;
-        data.avgExit = data.totalSold > 0 ? returned / data.totalSold : 0;
-        data.volume = invested + returned;
+    tokenMap.forEach((stats) => {
+        const currentPrice = prices[stats.mint]?.price || 0;
+        const unrealizedValue = (stats.totalBought - stats.totalSold) * currentPrice;
 
-        tokens.push(data);
-        cumulativePnL += data.pnl;
+        stats.pnl = stats.realizedGain + unrealizedValue - stats.costBasis;
+        stats.roi = stats.costBasis > 0 ? (stats.pnl / stats.costBasis) * 100 : 0;
+        stats.avgEntry = stats.totalBought > 0 ? stats.costBasis / stats.totalBought : 0;
+        stats.avgExit = stats.totalSold > 0 ? stats.realizedGain / stats.totalSold : 0;
+
+        tokens.push(stats);
+        cumulativePnL += stats.pnl;
     });
 
-    // Sort by P&L
     tokens.sort((a, b) => b.pnl - a.pnl);
-
-    // Generate timeline for chart
-    const timelineData = generateTimeline(trades, tokens);
 
     return {
         tokens,
@@ -282,27 +269,27 @@ function calculatePnL(trades) {
         wins: tokens.filter(t => t.pnl > 0).length,
         losses: tokens.filter(t => t.pnl < 0).length,
         totalVolume: tokens.reduce((sum, t) => sum + t.volume, 0),
-        timeline: timelineData
+        timeline: generateTimeline(trades, cumulativePnL)
     };
 }
 
 // Generate timeline data for chart
-function generateTimeline(trades, tokens) {
-    const now = Date.now();
-    const points = [];
+function generateTimeline(trades, finalPnL) {
+    if (trades.length === 0) return Array.from({ length: 24 }, (_, i) => ({ timestamp: Date.now() - (23 - i) * 3600000, value: 0 }));
+
+    // Sort trades by timestamp
+    const sortedTrades = [...trades].sort((a, b) => a.timestamp - b.timestamp);
+
     let cumulative = 0;
-
-    // Create time points
-    for (let i = 0; i < 24; i++) {
-        const timestamp = now - (23 - i) * 60 * 60 * 1000;
-        const value = Math.random() * 500 - 200; // Simulate
-        cumulative += value;
-
-        points.push({
-            timestamp,
+    const points = sortedTrades.map(trade => {
+        // Simplified: spread total pnl across trades for visual effect
+        // Real logic would calculate pnl at each point
+        cumulative += finalPnL / trades.length;
+        return {
+            timestamp: trade.timestamp * 1000,
             value: cumulative
-        });
-    }
+        };
+    });
 
     return points;
 }
