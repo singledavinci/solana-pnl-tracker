@@ -1,0 +1,20 @@
+{
+    "name": "solana-pnl-tracker",
+    "version": "1.0.0",
+    "description": "Track Solana wallet P&L and related wallets with on-chain data",
+    "main": "index.html",
+    "scripts": {
+        "dev": "echo 'Open index.html in your browser'",
+        "build": "echo 'No build needed for static site'"
+    },
+    "keywords": [
+        "solana",
+        "pnl",
+        "wallet",
+        "tracker",
+        "blockchain",
+        "crypto"
+    ],
+    "author": "",
+    "license": "MIT"
+}

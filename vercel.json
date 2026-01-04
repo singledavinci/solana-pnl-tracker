@@ -1,9 +1,4 @@
 {
-    "name": "solana-pnl-tracker",
-    "version": "1.0.0",
-    "description": "Track Solana wallet P&L and related wallets",
-    "buildCommand": "echo 'No build needed'",
-    "outputDirectory": ".",
     "framework": null,
-    "installCommand": "echo 'No install needed'"
+    "buildCommand": null
 }
