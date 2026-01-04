@@ -21,43 +21,34 @@ class APIService {
         return 'https://api.mainnet-beta.solana.com';
     }
 
-    // Fetch enhanced transactions from Helius
+    // Fetch enhanced transactions from Helius (via proxy)
     async fetchEnhancedTransactions(walletAddress, options = {}) {
-        const limit = options.limit || 1000;
+        const limit = options.limit || 100;
         const before = options.before || null;
+        const type = options.type || 'SWAP';
 
         try {
-            if (!this.heliusApiKey) {
-                console.warn('No Helius API key provided. Some features may be limited.');
-                return await this.fetchBasicTransactions(walletAddress, limit);
-            }
-
-            const url = `https://api.helius.xyz/v1/addresses/${walletAddress}/transactions`;
             const params = new URLSearchParams({
-                'api-key': this.heliusApiKey,
-                limit: limit.toString()
+                wallet: walletAddress,
+                limit: limit.toString(),
+                type
             });
-
-            // If a specific type is requested (like SWAP), Helius v1 handles it via 'type'
-            if (options.type) {
-                params.append('type', options.type);
-            }
 
             if (before) params.append('before', before);
 
-            console.log(`📡 Requesting Helius v1: ${url}?${params.toString()}`);
-            const response = await fetch(`${url}?${params}`);
+            console.log(`📡 Calling local Helius proxy: /api/helius?${params.toString()}`);
+            const response = await fetch(`/api/helius?${params}`);
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error(`❌ Helius API Error (${response.status}):`, errorText);
-                throw new Error(`Helius API error: ${response.status}`);
+                console.error(`❌ Proxy Error (${response.status}):`, errorText);
+                throw new Error(`Proxy error: ${response.status}`);
             }
 
             return await response.json();
         } catch (error) {
             console.error('Enhanced transaction fetch failed:', error);
-            // Fallback to basic RPC
+            // Fallback to basic RPC (this might still face CORS but at least we try)
             return await this.fetchBasicTransactions(walletAddress, limit);
         }
     }
@@ -109,16 +100,15 @@ class APIService {
         return data.result;
     }
 
-    // Fetch current token prices from Jupiter
+    // Fetch current token prices from Jupiter (via proxy)
     async fetchTokenPrices(tokenMints) {
+        if (tokenMints.length === 0) return {};
         try {
             const ids = tokenMints.join(',');
-            const response = await fetch(
-                `https://price.jup.ag/v4/price?ids=${ids}`
-            );
+            const response = await fetch(`/api/jupiter?ids=${ids}`);
 
             if (!response.ok) {
-                throw new Error('Jupiter price fetch failed');
+                throw new Error('Jupiter proxy fetch failed');
             }
 
             const data = await response.json();

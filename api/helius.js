@@ -1,0 +1,31 @@
+export default async function handler(req, res) {
+    const { wallet, type, limit, before } = req.query;
+    const apiKey = process.env.HELIUS_API_KEY;
+
+    if (!wallet) {
+        return res.status(400).json({ error: 'Wallet address is required' });
+    }
+
+    try {
+        const url = `https://api.helius.xyz/v1/addresses/${wallet}/transactions`;
+        const params = new URLSearchParams({
+            'api-key': apiKey,
+            limit: limit || '100'
+        });
+
+        if (type) params.append('type', type);
+        if (before) params.append('before', before);
+
+        const response = await fetch(`${url}?${params}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+            return res.status(response.status).json(data);
+        }
+
+        res.status(200).json(data);
+    } catch (error) {
+        console.error('Helius Proxy Error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
