@@ -99,7 +99,7 @@ async function fetchWalletTransactions(address) {
 
         console.log('🔄 Fetching transactions from Helius...');
         const transactions = await apiService.fetchEnhancedTransactions(address, {
-            limit: 1000,
+            limit: 100,
             type: 'SWAP' // Request swaps specifically
         });
 

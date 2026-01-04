@@ -10,7 +10,7 @@ export default async function handler(req, res) {
         const url = `https://api.helius.xyz/v0/addresses/${wallet}/transactions`;
         const params = new URLSearchParams({
             'api-key': apiKey,
-            limit: limit || '100'
+            limit: Math.min(parseInt(limit || '100'), 100).toString()
         });
 
         if (type) params.append('type', type);
