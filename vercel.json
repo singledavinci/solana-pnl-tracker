@@ -1,4 +1,5 @@
 {
-    "framework": null,
-    "buildCommand": null
+    "buildCommand": null,
+    "devCommand": null,
+    "installCommand": null
 }
