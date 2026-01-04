@@ -1,0 +1,8 @@
+.git
+.vercel
+node_modules
+.env
+.env.local
+README.md
+DEPLOYMENT.md
+setup.html

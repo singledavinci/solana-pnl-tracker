@@ -4,8 +4,7 @@
     "description": "Track Solana wallet P&L and related wallets with on-chain data",
     "main": "index.html",
     "scripts": {
-        "dev": "echo 'Open index.html in your browser'",
-        "build": "echo 'No build needed for static site'"
+        "dev": "echo 'Open index.html in your browser'"
     },
     "keywords": [
         "solana",
