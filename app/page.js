@@ -6,7 +6,7 @@ import { TrendingUp, TrendingDown, AlertCircle, Search, Loader2, ExternalLink, W
 
 export default function Home() {
     const [walletAddress, setWalletAddress] = useState('');
-    const [apiKey, setApiKey] = useState('');
+    const [apiKey, setApiKey] = useState('3e096acf-ebcf-4b00-b733-c8d554d2c198');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [results, setResults] = useState(null);

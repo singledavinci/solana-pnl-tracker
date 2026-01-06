@@ -213,9 +213,10 @@ export async function POST(request) {
             );
         }
 
-        // Fetch transactions from Helius
-        const heliusUrl = `https://api.helius.xyz/v0/addresses/${walletAddress}/transactions?api-key=${apiKey}`;
+        // Fetch transactions from Helius (request more to ensure we get enough for different timeframes)
+        const heliusUrl = `https://api.helius.xyz/v0/addresses/${walletAddress}/transactions?api-key=${apiKey}&limit=1000`;
 
+        console.log(`Fetching transactions for timeframe: ${timeframe}`);
         const response = await fetch(heliusUrl);
 
         if (!response.ok) {
@@ -226,6 +227,7 @@ export async function POST(request) {
         }
 
         const transactions = await response.json();
+        console.log(`Total transactions fetched: ${transactions?.length || 0}`);
 
         if (!transactions || transactions.length === 0) {
             return NextResponse.json(
@@ -261,6 +263,8 @@ export async function POST(request) {
         const filteredTxs = transactions.filter(tx =>
             (tx.timestamp || 0) >= timeframeFilters[timeframe]
         );
+
+        console.log(`After ${timeframe} filter: ${filteredTxs.length} transactions remain`);
 
         // Process transactions
         const positions = new Map();
