@@ -1,0 +1,13 @@
+var R=require("../../chunks/ssr/[turbopack]_runtime.js")("server/app/_not-found/page.js")
+R.c("server/chunks/ssr/[root-of-the-server]__da65a6ba._.js")
+R.c("server/chunks/ssr/af5ae_next_dist_ff3bf5c5._.js")
+R.c("server/chunks/ssr/af5ae_next_dist_esm_build_templates_app-page_2cde060d.js")
+R.c("server/chunks/ssr/[root-of-the-server]__b7848399._.js")
+R.c("server/chunks/ssr/[root-of-the-server]__c919c8a1._.js")
+R.c("server/chunks/ssr/af5ae_next_dist_123968a4._.js")
+R.c("server/chunks/ssr/_gemini_antigravity_scratch_solana-pnl-tracker_app_layout_0c45ba45.js")
+R.c("server/chunks/ssr/af5ae_next_dist_client_components_6447dc3d._.js")
+R.c("server/chunks/ssr/af5ae_next_dist_client_components_builtin_forbidden_32622811.js")
+R.c("server/chunks/ssr/12d90_solana-pnl-tracker__next-internal_server_app__not-found_page_actions_08b5531a.js")
+R.m(76104)
+module.exports=R.m(76104).exports

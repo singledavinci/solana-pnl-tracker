@@ -20,6 +20,10 @@ export default async function handler(req, res) {
         const data = await response.json();
 
         if (!response.ok) {
+            // If Helius returns 404 because no SWAP events found, return empty array
+            if (response.status === 404 && data.error && data.error.includes('Failed to find events')) {
+                return res.status(200).json([]);
+            }
             return res.status(response.status).json(data);
         }
 
