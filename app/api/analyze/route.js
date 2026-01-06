@@ -213,8 +213,8 @@ export async function POST(request) {
             );
         }
 
-        // Fetch transactions from Helius (request more to ensure we get enough for different timeframes)
-        const heliusUrl = `https://api.helius.xyz/v0/addresses/${walletAddress}/transactions?api-key=${apiKey}&limit=1000`;
+        // Fetch transactions from Helius
+        const heliusUrl = `https://api.helius.xyz/v0/addresses/${walletAddress}/transactions?api-key=${apiKey}`;
 
         console.log(`Fetching transactions for timeframe: ${timeframe}`);
         const response = await fetch(heliusUrl);
