@@ -259,7 +259,12 @@ export default function Home() {
                                     <tbody>
                                         {results.positions.map((pos, i) => (
                                             <tr key={i} className="border-b border-white/10 hover:bg-white/5 transition-colors">
-                                                <td className="py-3 px-2 font-medium">{pos.symbol}</td>
+                                                <td className="py-3 px-2">
+                                                    <div className="font-medium">{pos.symbol}</div>
+                                                    {pos.name && pos.name !== pos.symbol && (
+                                                        <div className="text-xs text-purple-300">{pos.name}</div>
+                                                    )}
+                                                </td>
                                                 <td className="py-3 px-2">
                                                     <a
                                                         href={`https://solscan.io/token/${pos.mint}`}

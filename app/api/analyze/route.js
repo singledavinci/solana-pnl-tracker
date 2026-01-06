@@ -194,12 +194,52 @@ function extractSwapDetails(transaction, wallet, tradeType) {
 
     return {
         mint: targetToken.mint,
-        symbol: targetToken.symbol || 'UNKNOWN',
+        symbol: targetToken.symbol || targetToken.mint.slice(0, 8),
         amount: targetAmount,
         pricePerToken,
         baseAmount,
         baseCurrency: BASE_TOKENS[baseToken.mint]
     };
+}
+
+// Fetch token metadata to get proper token names
+async function fetchTokenMetadata(mints, apiKey) {
+    try {
+        const response = await fetch('https://api.helius.xyz/v0/token-metadata', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                mintAccounts: mints,
+                includeOffChain: true,
+                disableCache: false
+            }),
+        });
+
+        if (!response.ok) return {};
+
+        const metadata = await response.json();
+        const metadataMap = {};
+
+        metadata.forEach(token => {
+            if (token.account) {
+                metadataMap[token.account] = {
+                    symbol: token.onChainMetadata?.metadata?.data?.symbol ||
+                        token.offChainMetadata?.symbol ||
+                        token.account.slice(0, 8),
+                    name: token.onChainMetadata?.metadata?.data?.name ||
+                        token.offChainMetadata?.name ||
+                        'Unknown Token'
+                };
+            }
+        });
+
+        return metadataMap;
+    } catch (error) {
+        console.error('Token metadata fetch error:', error);
+        return {};
+    }
 }
 
 export async function POST(request) {
@@ -319,6 +359,18 @@ export async function POST(request) {
             )
             : null;
 
+        // Fetch token metadata for all unique mints to get proper names/symbols
+        const uniqueMints = [...new Set(positionsArray.map(p => p.mint))];
+        const tokenMetadata = await fetchTokenMetadata(uniqueMints, apiKey);
+
+        // Enrich positions with proper token names
+        positionsArray.forEach(pos => {
+            if (tokenMetadata[pos.mint]) {
+                pos.symbol = tokenMetadata[pos.mint].symbol;
+                pos.name = tokenMetadata[pos.mint].name;
+            }
+        });
+
         // Detect related wallets
         const relatedWallets = detectRelatedWallets(transactions, walletAddress);
 
@@ -338,6 +390,7 @@ export async function POST(request) {
                 .sort((a, b) => b.realizedPnL - a.realizedPnL)
                 .map(p => ({
                     symbol: p.symbol,
+                    name: p.name || p.symbol,
                     mint: p.mint,
                     trades: p.trades.length,
                     avgEntry: p.getAvgEntryPrice(),
