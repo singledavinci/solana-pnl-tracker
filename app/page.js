@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp, TrendingDown, AlertCircle, Search, Loader2, ExternalLink, Wallet, Users } from 'lucide-react';
 
@@ -48,6 +48,13 @@ export default function Home() {
             setLoading(false);
         }
     };
+
+    // Re-analyze when timeframe changes (if we already have results)
+    useEffect(() => {
+        if (results && walletAddress && apiKey) {
+            analyzeWallet();
+        }
+    }, [timeframe]); // Only re-run when timeframe changes
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white p-6">
