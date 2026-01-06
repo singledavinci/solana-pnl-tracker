@@ -248,6 +248,7 @@ export default function Home() {
                                     <thead>
                                         <tr className="border-b border-white/20 text-purple-200">
                                             <th className="text-left py-3 px-2">Token</th>
+                                            <th className="text-left py-3 px-2">Contract Address</th>
                                             <th className="text-right py-3 px-2">Trades</th>
                                             <th className="text-right py-3 px-2">Avg Entry</th>
                                             <th className="text-right py-3 px-2">Avg Exit</th>
@@ -259,6 +260,18 @@ export default function Home() {
                                         {results.positions.map((pos, i) => (
                                             <tr key={i} className="border-b border-white/10 hover:bg-white/5 transition-colors">
                                                 <td className="py-3 px-2 font-medium">{pos.symbol}</td>
+                                                <td className="py-3 px-2">
+                                                    <a
+                                                        href={`https://solscan.io/token/${pos.mint}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-blue-400 hover:text-blue-300 font-mono text-xs flex items-center gap-1"
+                                                        title={pos.mint}
+                                                    >
+                                                        {pos.mint.slice(0, 4)}...{pos.mint.slice(-4)}
+                                                        <ExternalLink size={12} />
+                                                    </a>
+                                                </td>
                                                 <td className="text-right py-3 px-2">{pos.trades}</td>
                                                 <td className="text-right py-3 px-2 text-purple-300">${pos.avgEntry.toFixed(4)}</td>
                                                 <td className="text-right py-3 px-2 text-purple-300">

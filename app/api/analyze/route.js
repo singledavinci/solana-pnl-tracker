@@ -338,6 +338,7 @@ export async function POST(request) {
                 .sort((a, b) => b.realizedPnL - a.realizedPnL)
                 .map(p => ({
                     symbol: p.symbol,
+                    mint: p.mint,
                     trades: p.trades.length,
                     avgEntry: p.getAvgEntryPrice(),
                     avgExit: p.getAvgExitPrice(),
